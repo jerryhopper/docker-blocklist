@@ -1,47 +1,44 @@
 #!/bin/sh
 
+set -e
+
+# Helper command to manipulate both the IPv4 and IPv6 tables.
+ip46tables() {
+  iptables -w "$@"
+  ip6tables -w "$@"
+}
+
 cleanup() {
   echo "Cleanup..."
-  iptables -D INPUT -j $CHAIN
-  iptables -F $CHAIN
-  iptables -X $CHAIN
+  ip46tables -D INPUT -j blocklist 2> /dev/null || true
+  ip46tables -F blocklist 2> /dev/null || true
+  ip46tables -X blocklist 2> /dev/null || true
   echo "...done."
   exit 0
 }
 
 trap cleanup TERM
 
-echo "Configuring firewall..."
+ip46tables -D INPUT -j blocklist 2> /dev/null || true
+ip46tables -F blocklist 2> /dev/null || true
+ip46tables -X blocklist 2> /dev/null || true
 
-iptables -S $CHAIN
+ip46tables -N blocklist
 
-if [ 0 -ne $? ]; then
-  iptables -N $CHAIN
-fi
+echo "Configuring IPv4 blocklist..."
+for ip in $(cat /drop.txt); do
+  iptables -A blocklist -s $ip -j DROP
+done
+iptables -A blocklist -j RETURN
 
-iptables -F $CHAIN
+echo "Configuring IPv6 blocklist..."
+for ip in $(cat /dropv6.txt); do
+  ip6tables -A blocklist -s $ip -j DROP
+done
+ip6tables -A blocklist -j RETURN
 
-iptables -A $CHAIN -m state --state RELATED,ESTABLISHED -j ACCEPT
-iptables -A $CHAIN -i lo -j ACCEPT
-
-iptables -A $CHAIN -p tcp --tcp-flags ALL NONE -j DROP
-iptables -A $CHAIN -p tcp ! --syn -m state --state NEW -j DROP
-iptables -A $CHAIN -p tcp --tcp-flags ALL ALL -j DROP
-
-iptables -A $CHAIN -p tcp --match multiport --dports $OPEN_PORTS -j RETURN
-
-[ -n "$ACCEPT_ALL_FROM" ] && iptables -A $CHAIN -s $ACCEPT_ALL_FROM -j RETURN
-
-iptables -A $CHAIN -j DROP
-iptables -S $CHAIN
-
-iptables -A INPUT -j $CHAIN
+ip46tables -I INPUT -j blocklist
 
 echo "...done."
 
-while true; do
-  sleep 1 &
-  wait $!
-done
-
-exit 0
+tail -f /dev/null

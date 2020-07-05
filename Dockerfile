@@ -1,14 +1,12 @@
 FROM alpine
 
-RUN apk add --no-cache tini iptables
+RUN apk add --no-cache tini iptables ip6tables curl
 
 ADD configure-firewall.sh /bin
 
-ENV CHAIN "DOCKER-FIREWALL"
-ENV OPEN_PORTS "22,80,443"
-ENV ACCEPT_ALL_FROM ""
+RUN curl https://www.spamhaus.org/drop/drop.txt 2> /dev/null | sed 's/;.*//' > /drop.txt
+RUN curl https://www.spamhaus.org/drop/dropv6.txt 2> /dev/null | sed 's/;.*//' > /dropv6.txt
 
 ENTRYPOINT ["/sbin/tini", "--"]
-
 
 CMD ["/bin/configure-firewall.sh"]
