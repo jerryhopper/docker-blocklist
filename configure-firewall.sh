@@ -36,12 +36,14 @@ ip46tables -N blocklist
 echo "Configuring IPv4 blocklist..."
 for ip in $(cat /lists/drop.txt); do
   iptables -A blocklist -s $ip -j DROP
+  iptables -A blocklist -d $ip -j DROP
 done
 iptables -A blocklist -j RETURN
 
 echo "Configuring IPv6 blocklist..."
 for ip in $(cat /lists/dropv6.txt); do
   ip6tables -A blocklist -s $ip -j DROP
+  ip6tables -A blocklist -d $ip -j DROP
 done
 ip6tables -A blocklist -j RETURN
 
